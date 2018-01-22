@@ -134,8 +134,20 @@ def cookiejar_to_webdriver(cookies):
 
 def reset_driver():
     global driver
+    global redis_conn
+    
     driver.quit()
-    driver = webdriver.Chrome(settings.chrome_path, chrome_options=chrome_options) 
+    driver = webdriver.Chrome('/usr/local/bin/chromedriver', chrome_options=chrome_options) 
+    driver_cookies = redis_conn.get('crawler/cookie')
+    if driver_cookies:
+        try:
+            driver.get("https://ya.ru") # Hack, couldnot set up cookie other way
+            driver_cookies = json.loads(driver_cookies)
+            for cookie in driver_cookies:
+                driver.add_cookie(cookie)
+        except:
+            print "Cookie not loaded"
+            pass # :-( 
 
 def send_report(user_email,password,mail_to,subject,data,server_name):
     server = smtplib.SMTP_SSL(server_name)
