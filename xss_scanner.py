@@ -1,6 +1,6 @@
 import re
 import time
-import redis
+import json
 import smtplib
 import selenium
 import lxml.html as html
@@ -8,7 +8,6 @@ import lxml.html as html
 from urlparse import urlparse
 from selenium import webdriver
 from selenium.common.exceptions import *
-from selenium.webdriver.chrome.options import Options
 
 from email.header import Header
 from email.message import Message
@@ -17,7 +16,6 @@ from email.mime.text import MIMEText
 
 import settings
 import argparse
-import browsercookie
 
 from settings import logger
 
@@ -108,23 +106,6 @@ def extract_jsvar_fast(script):
                 vlist.append(vname)
 
     return set(vlist)
-
-def cookiejar_to_webdriver(cookies):
-    cookie_list = list()
-    for cookie in cookies:
-        driver_cookie = dict()
-        for attr_name in ("domain", "secure", "value", "path", "name"):
-            driver_cookie[attr_name] = getattr(cookie, attr_name)
-
-        driver_cookie["expiry"] = cookie.expires
-        
-        if cookie.get_nonstandard_attr("HttpOnly"):
-            driver_cookie["httpOnly"] = True
-        else:
-            driver_cookie["httpOnly"] = False
-        cookie_list.append(driver_cookie)
-        
-    return cookie_list
 
 def reset_driver():
     global driver
@@ -235,6 +216,8 @@ def process_url(url, task ,worker_name):
     task_params["params"] = ""
     task_params = json.dumps(task_params)
 
+    logger.info("Url: {} \nUse crawler: {}\nUse extractor: {}".format(url, task["crawler"], task["extract_js"]))
+
     try:
         driver.get(url)
         doc = html.fromstring(driver.page_source)
@@ -249,7 +232,7 @@ def process_url(url, task ,worker_name):
         reset_driver()
         driver.get(url)
         doc = html.fromstring(driver.page_source)
-        logger.info("Exception on url: {}".format(url))
+        logger.info("236: Exception on url: {}".format(url))
 
     all_variables = set()
 
@@ -302,7 +285,7 @@ def process_url(url, task ,worker_name):
             driver.get(req)
             
         except:
-            logger.info("Exception on url: {}".format(req))
+            logger.info("289: Exception on url: {}".format(req))
             reset_driver()
         
     try:
@@ -311,11 +294,8 @@ def process_url(url, task ,worker_name):
         notify(data=data,subject="XSS was found!")
         alert.accept()
 
-    except NoAlertPresentException:
-        pass
-
     except:
-        logger.info("Exception on url: {}".format(req))
+        logger.info("302: Exception on url: {}".format(req))
         reset_driver()
     
 def main():
@@ -328,26 +308,33 @@ def main():
     while True:
         try:
             key = next(redis_conn.scan_iter("crawler/queue/*"))
-            task = json.loads(redis_conn.get(key))
-
-            url = key.replace("crawler/queue/","")
-            processing_key = "".join(("crawler/processing/", url))
-        
         except StopIteration:
             time.sleep(5.0)
+            continue
+        
+        task = json.loads(redis_conn.get(key))
+        url = key.replace("crawler/queue/","")
+        processing_key = "".join(("crawler/processing/", url))
 
         redis_conn.set(processing_key, str(worker_name))
         redis_conn.delete(key)
 
         try:
-            process_url(url, worker_name)
+            process_url(url,task, worker_name)
             redis_conn.delete(processing_key)
             redis_conn.set("".join(("crawler/done/",url)), str(worker_name))
+ 
+        except KeyboardInterrupt:
+            if driver:
+                driver.quit()
+                redis_conn.delete(processing_key)
+                redis_conn.set(key, json.dumps(task))
+            return
 
         except: #TODO Add smarter exception handler
             logger.info("Error on url: {}".format(url))
             redis_conn.delete(processing_key)
-            redis_conn.set(key, json.dumps(task))
+            #redis_conn.set(key, json.dumps(task))
             reset_driver()
 
 if __name__ == "__main__":
