@@ -17,6 +17,7 @@ from email.mime.text import MIMEText
 
 import settings
 import argparse
+import browsercookie
 
 prefs = {"profile.managed_default_content_settings.images":2}
 
@@ -113,6 +114,23 @@ def extract_jsvar_fast(script):
                 vlist.append(vname)
 
     return set(vlist)
+
+def cookiejar_to_webdriver(cookies):
+    cookie_list = list()
+    for cookie in cookies:
+        driver_cookie = dict()
+        for attr_name in ("domain", "secure", "value", "path", "name"):
+            driver_cookie[attr_name] = getattr(cookie, attr_name)
+
+        driver_cookie["expiry"] = cookie.expires
+        
+        if cookie.get_nonstandard_attr("HttpOnly"):
+            driver_cookie["httpOnly"] = True
+        else:
+            driver_cookie["httpOnly"] = False
+        cookie_list.append(driver_cookie)
+        
+    return cookie_list
 
 def reset_driver():
     global driver
