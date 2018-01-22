@@ -235,6 +235,12 @@ def extract_links(doc):
 def process_url(url, task ,worker_name):
     parsed_url = urlparse(url)
 
+    task_params = dict()
+    task_params["worker"] = str(worker_name)
+    task_params["crawler"] = task["crawler"] # inherit crawler
+    task_params["extract_js"] = task["extract_js"] # and js extractor parameters
+    task_params["params"] = ""
+
     try:
         driver.get(url)
         doc = html.fromstring(driver.page_source)
@@ -253,14 +259,14 @@ def process_url(url, task ,worker_name):
 
     all_variables = set()
 
-    if crawler == True:
+    if task["crawler"] == True:
         links, param_vars = extract_links(doc)
         all_variables.update(set(param_vars))
         for link in links:
             if check_url(redis_conn, link):
-                redis_conn.set("".join(("crawler/queue/", link)), str(worker_name))
+                redis_conn.set("".join(("crawler/queue/", link)), )
     
-    if extract_js == True: # extract varnames from js
+    if task["extract_js"] == True: # extract varnames from js
         doc_scripts = doc.xpath(".//script/text()")
         for script in doc_scripts:
             all_variables.update(extract_jsvar_fast(script))
@@ -272,6 +278,7 @@ def process_url(url, task ,worker_name):
     xss_requests = []
     req = "".join((url,"?"))
 
+    # Generate payloads
     for payload in xss_payloads:
         for var in all_variables:
             tmp = "".join((var,"=",payload,"&"))
@@ -282,6 +289,7 @@ def process_url(url, task ,worker_name):
             else:
                 req += tmp
 
+    # Do requests
     for req in xss_requests:
         try:
             driver.get(req)
@@ -321,6 +329,8 @@ def main():
     while True:
         try:
             key = next(redis_conn.scan_iter("crawler/queue/*"))
+            task = json.loads(redis_conn.get(key))
+
             url = key.replace("crawler/queue/","")
             processing_key = "".join(("crawler/processing/", url))
         
@@ -338,7 +348,7 @@ def main():
         except: #TODO Add smarter exception handler
             logger.info("Error on url: {}".format(url))
             redis_conn.delete(processing_key)
-            redis_conn.set(key, str(worker_name))
+            redis_conn.set(key, json.dumps(task))
             reset_driver()
 
 if __name__ == "__main__":
