@@ -19,16 +19,9 @@ import settings
 import argparse
 import browsercookie
 
-prefs = {"profile.managed_default_content_settings.images":2}
+from settings import logger
 
-chrome_options = Options()  
-chrome_options.add_argument("--headless")  
-chrome_options.add_argument('--ignore-certificate-errors')
-chrome_options.add_argument('--disable-web-security')
-chrome_options.add_argument('--disable-xss-auditor')
-chrome_options.add_experimental_option("prefs",prefs)
-
-driver = webdriver.Chrome('/usr/local/bin/chromedriver', chrome_options=chrome_options) 
+driver = webdriver.Chrome(settings.chrome_path, chrome_options=chrome_options) 
 redis_conn = redis.StrictRedis(host='localhost', port=6379, db=1)
 
 js_var_extractors = [
@@ -102,6 +95,7 @@ xss_payloads = ['''<img src=x id/=' onerror=alert(1)//'>''',
                 '''"`><img src=xx onerror=alert(1)//">''',
                 '''"><img src=xx onerror=alert(1)//">''',
                 '''alert(1);''']
+
 payload_alerts = set("1")
 
 content_ext = ".jpg.png.gif.bmp.svg.ico.js.css"
@@ -136,9 +130,12 @@ def reset_driver():
     global driver
     global redis_conn
     
-    driver.quit()
-    driver = webdriver.Chrome('/usr/local/bin/chromedriver', chrome_options=chrome_options) 
+    if driver:
+        driver.quit()
+
+    driver = webdriver.Chrome(settings.chrome_path , chrome_options=settings.chrome_options) 
     driver_cookies = redis_conn.get('crawler/cookie')
+    
     if driver_cookies:
         try:
             driver.get("https://ya.ru") # Hack, couldnot set up cookie other way
@@ -146,8 +143,7 @@ def reset_driver():
             for cookie in driver_cookies:
                 driver.add_cookie(cookie)
         except:
-            print "Cookie not loaded"
-            pass # :-( 
+            logger.info("Cookie was not loaded")
 
 def send_report(user_email,password,mail_to,subject,data,server_name):
     server = smtplib.SMTP_SSL(server_name)
@@ -162,7 +158,7 @@ def send_report(user_email,password,mail_to,subject,data,server_name):
     msg_text = MIMEText(data.encode("utf-8"), "plain", "utf-8")
     msg.attach(msg_text)
     
-    print "Sending mail to {}".format(mail_to)
+    logger.info("Sending mail to {}".format(mail_to))
     server.sendmail(mail_from , mail_to, msg.as_string())
     server.quit()
 
@@ -183,6 +179,8 @@ def check_url(redis_conn, url):
         return False
     return True
 
+class InvalidUrlException(Exception):
+    pass
 
 def process_url(url, worker_name):
     parsed_url = urlparse(url)
@@ -195,11 +193,13 @@ def process_url(url, worker_name):
         alert = driver.switch_to.alert
         alert.accept()
         doc = html.fromstring(driver.page_source)
+        logger.info("Unexpected alert on url: {}".format(url))
 
     except:
         reset_driver()
         driver.get(url)
         doc = html.fromstring(driver.page_source)
+        logger.info("Exception on url: {}".format(url))
     
     page_links = []
     page_links += doc.xpath(".//*/@href")
@@ -271,10 +271,13 @@ def process_url(url, worker_name):
             alert = driver.switch_to.alert
             data = "Alert {} was found on {}".format(alert.text,req)
             notify(data=data,subject="XSS was found!")
+            logger.info(data)
+
             alert.accept()
             driver.get(req)
+            
         except:
-            print "Exception"
+            logger.info("Exception on url: {}".format(req))
             reset_driver()
         
     try:
@@ -287,12 +290,9 @@ def process_url(url, worker_name):
         pass
 
     except:
-        print "Exception"
+        logger.info("Exception on url: {}".format(req))
         reset_driver()
-
-   
     
-
 def main():
     parser = argparse.ArgumentParser(description='Run gathering game with AI')
     parser.add_argument('--name', type=str, default="Noname")
@@ -318,13 +318,10 @@ def main():
             redis_conn.set("".join(("crawler/done/",url)), str(worker_name))
 
         except: #TODO Add smarter exception handler
+            logger.info("Error on url: {}".format(url))
             redis_conn.delete(processing_key)
             redis_conn.set(key, str(worker_name))
             reset_driver()
 
 if __name__ == "__main__":
     main()
-    
-#TODO Add logger
-#TODO Add Cookie
-#TODO Commit my changes to browsercookie
