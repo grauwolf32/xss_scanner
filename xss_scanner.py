@@ -21,8 +21,8 @@ import browsercookie
 
 from settings import logger
 
-driver = webdriver.Chrome(settings.chrome_path, chrome_options=chrome_options) 
-redis_conn = redis.StrictRedis(host='localhost', port=6379, db=1)
+driver = webdriver.Chrome(settings.chrome_path, chrome_options=settings.chrome_options) 
+redis_conn = settings.redis_conn
 
 js_var_extractors = [
                      re.compile(r"([a-zA-Z_]\w*)\[([a-zA-Z_]\w*)*\w*\]"), # array regexp

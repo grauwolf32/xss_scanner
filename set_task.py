@@ -1,5 +1,7 @@
 import redis
 import random
+import json
+import argparse
 
 from urlparse import urlparse
 
@@ -52,7 +54,7 @@ def main():
     if args.urls:
         with open(args.var_list, "r") as f:
             for line in f:
-                url = line.strip("\n").strip(): 
+                url = line.strip("\n").strip()
                 domain = urlparse(url).netloc
 
                 if domain not in domains:
