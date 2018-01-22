@@ -135,7 +135,7 @@ def reset_driver():
 
     driver = webdriver.Chrome(settings.chrome_path , chrome_options=settings.chrome_options) 
     driver_cookies = redis_conn.get('crawler/cookie')
-    
+
     if driver_cookies:
         try:
             driver.get("https://ya.ru") # Hack, couldnot set up cookie other way
@@ -182,7 +182,57 @@ def check_url(redis_conn, url):
 class InvalidUrlException(Exception):
     pass
 
-def process_url(url, worker_name):
+def extract_links(doc):
+    global redis_conn
+
+    page_links = []
+    page_links += doc.xpath(".//*/@href")
+    page_links += doc.xpath(".//*/@src")
+    page_links += doc.xpath(".//*/@action")
+
+    links = set()
+    params = set()
+    domains = set()
+    param_vars = list()
+
+    for domain in redis_conn.scan_iter("crawler/domains/*"):
+        domain = domain.replace("crawler/domains/","")
+        domains.add(domain)
+
+    for link in page_links:
+        in_domains = False
+        for domain in domains:
+            if link.find(domain) != -1:
+                in_domains = True
+        if in_domains == False:
+            continue
+
+        tmp = link.split('?')
+        if len(tmp) > 1:
+            params.add(tmp[1])
+            
+        main_part = tmp[0]
+        main_part.strip().split('#')[0]
+    
+        if content_ext.find(main_part.split('.')[-1]) == -1:
+            if main_part.startswith('http') == False:
+                if main_part.startswith('//'):
+                    main_part = "".join((parsed_url.scheme,'://',main_part[2:]))
+                else:
+                    if main_part.startswith('/'):
+                        main_part = "".join((parsed_url.scheme,'://', parsed_url.netloc, main_part))
+
+        links.add(main_part)
+
+        for p in list(params):
+            tmp = p.split('&')
+            for i in tmp:
+                param_vars.append(i.split('=')[0])
+
+    return links, param_vars   
+    
+
+def process_url(url, task ,worker_name):
     parsed_url = urlparse(url)
 
     try:
@@ -200,56 +250,24 @@ def process_url(url, worker_name):
         driver.get(url)
         doc = html.fromstring(driver.page_source)
         logger.info("Exception on url: {}".format(url))
-    
-    page_links = []
-    page_links += doc.xpath(".//*/@href")
-    page_links += doc.xpath(".//*/@src")
-    page_links += doc.xpath(".//*/@action")
 
-    sites = set()
-    params = set()
     all_variables = set()
 
-    for lnk in page_links:
-        tmp = lnk.split('?')
-        if len(tmp) > 1:
-            params.add(tmp[1])
-            
-        main_part = tmp[0]
-        main_part.strip().split('#')[0]
+    if crawler == True:
+        links, param_vars = extract_links(doc)
+        all_variables.update(set(param_vars))
+        for link in links:
+            if check_url(redis_conn, link):
+                redis_conn.set("".join(("crawler/queue/", link)), str(worker_name))
     
-        if content_ext.find(main_part.split('.')[-1]) == -1:
-            if main_part.startswith('http'):
-                sites.add(main_part)
-            else:
-                if main_part.startswith('//'):
-                    sites.add("".join((parsed_url.scheme,'://',main_part[2:])))
-                else:
-                    if main_part.startswith('/'):
-                        sites.add("".join((parsed_url.scheme,'://', parsed_url.netloc, main_part)))
+    if extract_js == True: # extract varnames from js
+        doc_scripts = doc.xpath(".//script/text()")
+        for script in doc_scripts:
+            all_variables.update(extract_jsvar_fast(script))
 
-    request_vars = list()
-    for p in list(params):
-        tmp = p.split('&')
-        for i in tmp:
-            request_vars.append(i.split('=')[0])
-        
-    all_variables.update(set(request_vars))
-    
-    domains = set()
-    for domain in redis_conn.scan_iter("crawler/domains/*"):
-        domain = domain.replace("crawler/domains/","")
-        domains.add(domain)
-
-    for site_url in sites:
-        for domain in domains:
-            if site_url.find(domain) != -1:
-                if check_url(redis_conn, site_url):
-                    redis_conn.set("".join(("crawler/queue/", site_url)), str(worker_name))
-
-    doc_scripts = doc.xpath(".//script/text()")
-    for script in doc_scripts:
-        all_variables.update(extract_jsvar_fast(script))
+    for var in redis_conn.scan_iter("crawler/variables/*"): # load varnames from redis
+        var = var.replace("crawler/variables/","")
+        all_variables.add(var)
 
     xss_requests = []
     req = "".join((url,"?"))
