@@ -51,7 +51,8 @@ def main():
 
     if args.urls:
         with open(args.var_list, "r") as f:
-            while url = f.readline().strip("\n").strip(): 
+            for line in f:
+                url = line.strip("\n").strip(): 
                 domain = urlparse(url).netloc
 
                 if domain not in domains:
