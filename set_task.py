@@ -59,7 +59,7 @@ def main():
 
                 if domain not in domains:
                     domains.add(domain)
-                    redis_conn.set("crawler/variables/"+domain, "")
+                    redis_conn.set("crawler/domains/"+domain, "")
             
                 task_params = dict()
                 task_params["worker"] = "Noname"
@@ -78,7 +78,7 @@ def main():
         domain = urlparse(url).netloc
         if domain not in domains:
             domains.add(domain)
-            redis_conn.set("crawler/variables/"+domain, "")
+            redis_conn.set("crawler/domains/"+domain, "")
         
         task_params = dict()
         task_params["worker"] = "Noname"

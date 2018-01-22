@@ -26,10 +26,10 @@ logger = logging.getLogger('xss logger')
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.FileHandler(filename="scanner.log"))
 
-email = "email"
-password = "password"
-target_email = "target_email"
-smtp_server = "smtp_server"
+email = "pentester8928236@mail.ru"
+password = "qwerty12345"
+target_email = "pentester8928236@mail.ru"
+smtp_server = "smtp.mail.ru:465"
 
 maxurllen = 2000
 chrome_path = '/usr/local/bin/chromedriver'

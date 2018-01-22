@@ -163,7 +163,7 @@ def check_url(redis_conn, url):
 class InvalidUrlException(Exception):
     pass
 
-def extract_links(doc, domains):
+def extract_links(parsed_url, doc, domains):
     page_links = []
     page_links += doc.xpath(".//*/@href")
     page_links += doc.xpath(".//*/@src")
@@ -242,7 +242,7 @@ def process_url(url, task ,worker_name):
             domain = domain.replace("crawler/domains/","")
             domains.add(domain)
 
-        links, param_vars = extract_links(doc, domains)
+        links, param_vars = extract_links(parsed_url, doc, domains)
         all_variables.update(set(param_vars))
         for link in links:
             if check_url(redis_conn, link):
