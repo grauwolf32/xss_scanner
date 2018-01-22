@@ -182,9 +182,7 @@ def check_url(redis_conn, url):
 class InvalidUrlException(Exception):
     pass
 
-def extract_links(doc):
-    global redis_conn
-
+def extract_links(doc, domains):
     page_links = []
     page_links += doc.xpath(".//*/@href")
     page_links += doc.xpath(".//*/@src")
@@ -192,12 +190,7 @@ def extract_links(doc):
 
     links = set()
     params = set()
-    domains = set()
     param_vars = list()
-
-    for domain in redis_conn.scan_iter("crawler/domains/*"):
-        domain = domain.replace("crawler/domains/","")
-        domains.add(domain)
 
     for link in page_links:
         in_domains = False
@@ -240,6 +233,7 @@ def process_url(url, task ,worker_name):
     task_params["crawler"] = task["crawler"] # inherit crawler
     task_params["extract_js"] = task["extract_js"] # and js extractor parameters
     task_params["params"] = ""
+    task_params = json.dumps(task_params)
 
     try:
         driver.get(url)
@@ -260,11 +254,16 @@ def process_url(url, task ,worker_name):
     all_variables = set()
 
     if task["crawler"] == True:
-        links, param_vars = extract_links(doc)
+        domains = set()
+        for domain in redis_conn.scan_iter("crawler/domains/*"):
+            domain = domain.replace("crawler/domains/","")
+            domains.add(domain)
+
+        links, param_vars = extract_links(doc, domains)
         all_variables.update(set(param_vars))
         for link in links:
             if check_url(redis_conn, link):
-                redis_conn.set("".join(("crawler/queue/", link)), )
+                redis_conn.set("".join(("crawler/queue/", link)), task_params)
     
     if task["extract_js"] == True: # extract varnames from js
         doc_scripts = doc.xpath(".//script/text()")
@@ -320,7 +319,7 @@ def process_url(url, task ,worker_name):
         reset_driver()
     
 def main():
-    parser = argparse.ArgumentParser(description='Run gathering game with AI')
+    parser = argparse.ArgumentParser(description='xss scanner worker')
     parser.add_argument('--name', type=str, default="Noname")
     args = parser.parse_args()
 
