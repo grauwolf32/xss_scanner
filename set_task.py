@@ -34,16 +34,18 @@ def main():
 
     if args.xss_payloads:
         with open(args.xss_payloads, "r") as f:
-            payload = f.readline().strip("\n").strip() # Only payloads that takes one line
-            r = random.randint(0,4096)
-            cntr = 0
-            while redis_conn.get("crawler/payloads/"+str(r)) and cntr < 4096:
+            for line in f:
+                payload = line.strip("\n").strip() # Only payloads that takes one line
                 r = random.randint(0,4096)
-                cntr += 1
-            if cntr >= 4096:
-                print "Could not add payload. Payload limit has been reached"
+                cntr = 0
+                while redis_conn.get("crawler/payloads/"+str(r)) and cntr < 4096:
+                    r = random.randint(0,4096)
+                    cntr += 1
+
+                if cntr >= 4096:
+                    print "Could not add payload. Payload limit has been reached"
             
-            redis_conn.set("crawler/payloads/"+str(r), payload)
+                redis_conn.set("crawler/payloads/"+str(r), payload)
 
     if args.var_list:
         with open(args.var_list, "r") as f:
@@ -51,7 +53,7 @@ def main():
                 var = var.strip("\n").strip()
                 redis_conn.set("crawler/variables/"+var, "")
 
-    if args.urls:
+    if args.urls: # TODO Search through robots.txt and sitemap.xml
         with open(args.var_list, "r") as f:
             for line in f:
                 url = line.strip("\n").strip()
