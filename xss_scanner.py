@@ -156,7 +156,7 @@ def process_url(url, task , worker_name):
     task_params["params"] = ""
     task_params = json.dumps(task_params)
 
-    logger.info("Url: {} \nUse crawler: {}\nUse extractor: {}".format(url, task["crawler"], task["extract_js"]))
+    runtime_log = "Url: {} \nCrawler: {} Extractor: {}".format(url, task["crawler"], task["extract_js"])
 
     try:
         driver.get(url)
@@ -172,10 +172,11 @@ def process_url(url, task , worker_name):
         reset_driver()
         driver.get(url)
         doc = html.fromstring(driver.page_source)
-        logger.info("236: Exception on url: {}".format(url))
+        logger.info("Exception on url: {}".format(url))
 
     all_variables = set()
 
+    t1 = time.time()
     if task["crawler"] == True:
         domains = set()
         for domain in redis_conn.scan_iter("crawler/domains/*"):
@@ -187,11 +188,16 @@ def process_url(url, task , worker_name):
         for link in links:
             if check_url(redis_conn, link):
                 redis_conn.set("".join(("crawler/queue/", link)), task_params)
-    
+    t2 = time.time()
+    runtime_log += "Crawler time: {}\n".format(t2-t1)
+
+    t1 = time.time()
     if task["extract_js"] == True: # extract varnames from js
         doc_scripts = doc.xpath(".//script/text()")
         for script in doc_scripts:
             all_variables.update(extract_jsvar_fast(script))
+    t2 = time.time()
+    runtime_log += "Crawler time: {}\n".format(t2-t1)
 
     for var in redis_conn.scan_iter("crawler/variables/*"): # load varnames from redis
         var = var.replace("crawler/variables/","")
@@ -202,7 +208,7 @@ def process_url(url, task , worker_name):
 
     # xss_payloads = update_payloads(redis_conn)
 
-    # Generate payloads
+    # Generate requests
     for payload in xss_payloads:
         for var in all_variables:
             tmp = "".join((var,"=",payload,"&"))
@@ -213,7 +219,10 @@ def process_url(url, task , worker_name):
             else:
                 req += tmp
 
+    runtime_log += "{} requests was generated\n".format(len(xss_requests))
+
     # Do requests
+    t1 = time.time()
     for req in xss_requests:
         try:
             driver.get(req)
@@ -227,8 +236,8 @@ def process_url(url, task , worker_name):
             driver.get(req)
             
         except:
-            logger.info("289: Exception on url: {}".format(req))
-            logger.info(sys.exc_info()[0])
+            logger.info("Exception on url: {}".format(req))
+            logger.info(sys.exc_info())
             reset_driver()
         
     try:
@@ -241,9 +250,13 @@ def process_url(url, task , worker_name):
         pass
 
     except:
-        logger.info("302: Exception on url: {}".format(req))
+        logger.info("Exception on url: {}".format(req))
         logger.info(sys.exc_info()[0])
         reset_driver()
+
+    t2 = time.time()
+    runtime_log += "Payload requests time: {}\nDone.".format(t2-t1)
+    logger.info(runtime_log)
     
 def main():
     parser = argparse.ArgumentParser(description='xss scanner worker')
@@ -274,7 +287,8 @@ def main():
             for domain_key in redis_conn.scan_iter("crawler/domains/*"): # Count processed domains
                 domain = domain_key.replace("crawler/domains/","")
                 if url.find(domain) != -1:
-                    redis_conn.incr(domain_key)
+                    redis_conn.incr("crawler/counter/"+domain)
+                    break
  
         except KeyboardInterrupt:
             if driver:
