@@ -272,7 +272,7 @@ def main():
             redis_conn.set("".join(("crawler/done/",url)), str(worker_name))
 
             for domain_key in redis_conn.scan_iter("crawler/domains/*"): # Count processed domains
-                domain = domain.replace("crawler/domains/","")
+                domain = domain_key.replace("crawler/domains/","")
                 if url.find(domain) != -1:
                     redis_conn.incr(domain_key)
  
@@ -285,7 +285,7 @@ def main():
 
         except: #TODO Add smarter exception handler
             logger.info("Error on url: {}".format(url))
-            logger.info(sys.exc_info()[0])
+            logger.info(sys.exc_info())
             redis_conn.delete(processing_key)
             redis_conn.incr("crawler/errors")
             #redis_conn.set(key, json.dumps(task))

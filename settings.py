@@ -38,7 +38,7 @@ chrome_path = '/usr/local/bin/chromedriver'
 prefs = {"profile.managed_default_content_settings.images":2}
 
 chrome_options = Options()  
-#chrome_options.add_argument('--headless')  
+chrome_options.add_argument('--headless')  
 chrome_options.add_argument('--ignore-certificate-errors')
 chrome_options.add_argument('--disable-web-security')
 chrome_options.add_argument('--disable-xss-auditor')
