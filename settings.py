@@ -2,6 +2,7 @@ import browsercookie
 import logging
 import redis
 import json
+import re
 
 from selenium.webdriver.chrome.options import Options
 
@@ -27,7 +28,7 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.FileHandler(filename="scanner.log"))
 
 email = "pentester8928236@mail.ru"
-password = "qwerty12345"
+password = ""
 target_email = "pentester8928236@mail.ru"
 smtp_server = "smtp.mail.ru:465"
 
@@ -134,3 +135,6 @@ reserved_keywords = set(["alert", "all", "anchor", "anchors",
 
 reserved_small = set(["alert","innerHTML","self","setTimeout","window","clearTimeout"])
 js_keywords.update(reserved_small)
+
+content_ext = set(["jpeg", "xml", "jpg", "png" , "gif" , "bmp" , "svg", "ico" , "js" , "css", "exe", "tar", "gz"])
+# payload_alerts = set("1")

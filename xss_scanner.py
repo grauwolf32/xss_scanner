@@ -1,4 +1,5 @@
 import re
+import sys
 import time
 import json
 import smtplib
@@ -25,10 +26,7 @@ redis_conn = settings.redis_conn
 js_var_extractors = settings.js_var_extractors
 js_keywords = settings.js_keywords
 xss_payloads = settings.xss_payloads
-
-payload_alerts = set("1")
-
-content_ext = ".jpg.png.gif.bmp.svg.ico.js.css"
+content_ext = settings.content_ext
 
 def extract_jsvar_fast(script):
     vlist = list()
@@ -128,17 +126,17 @@ def extract_links(parsed_url, doc, domains):
             params.add(tmp[1])
             
         main_part = tmp[0]
-        main_part.strip().split('#')[0]
+        main_part = main_part.strip().split('#')[0]
     
-        if content_ext.find(main_part.split('.')[-1]) == -1:
+        if main_part.split('.')[-1] not in content_ext:
             if main_part.startswith('http') == False:
                 if main_part.startswith('//'):
-                    main_part = "".join((parsed_url.scheme,'://',main_part[2:]))
+                    main_part = "".join((parsed_url.scheme,'://', main_part[2:]))
                 else:
                     if main_part.startswith('/'):
                         main_part = "".join((parsed_url.scheme,'://', parsed_url.netloc, main_part))
 
-        links.add(main_part)
+            links.add(main_part)
 
         for p in list(params):
             tmp = p.split('&')
@@ -148,7 +146,7 @@ def extract_links(parsed_url, doc, domains):
     return links, param_vars   
     
 
-def process_url(url, task ,worker_name):
+def process_url(url, task , worker_name):
     parsed_url = urlparse(url)
 
     task_params = dict()
@@ -230,6 +228,7 @@ def process_url(url, task ,worker_name):
             
         except:
             logger.info("289: Exception on url: {}".format(req))
+            logger.info(sys.exc_info()[0])
             reset_driver()
         
     try:
@@ -238,8 +237,12 @@ def process_url(url, task ,worker_name):
         notify(data=data,subject="XSS was found!")
         alert.accept()
 
+    except NoAlertPresentException:
+        pass
+
     except:
         logger.info("302: Exception on url: {}".format(req))
+        logger.info(sys.exc_info()[0])
         reset_driver()
     
 def main():
@@ -267,6 +270,11 @@ def main():
             process_url(url,task, worker_name)
             redis_conn.delete(processing_key)
             redis_conn.set("".join(("crawler/done/",url)), str(worker_name))
+
+            for domain_key in redis_conn.scan_iter("crawler/domains/*"): # Count processed domains
+                domain = domain.replace("crawler/domains/","")
+                if url.find(domain) != -1:
+                    redis_conn.incr(domain_key)
  
         except KeyboardInterrupt:
             if driver:
@@ -277,7 +285,9 @@ def main():
 
         except: #TODO Add smarter exception handler
             logger.info("Error on url: {}".format(url))
+            logger.info(sys.exc_info()[0])
             redis_conn.delete(processing_key)
+            redis_conn.incr("crawler/errors")
             #redis_conn.set(key, json.dumps(task))
             reset_driver()
 
