@@ -114,13 +114,6 @@ def extract_links(parsed_url, doc, domains):
     param_vars = list()
 
     for link in page_links:
-        in_domains = False
-        for domain in domains:
-            if link.find(domain) != -1:
-                in_domains = True
-        if in_domains == False:
-            continue
-
         tmp = link.split('?')
         if len(tmp) > 1:
             params.add(tmp[1])
@@ -136,7 +129,9 @@ def extract_links(parsed_url, doc, domains):
                     if main_part.startswith('/'):
                         main_part = "".join((parsed_url.scheme,'://', parsed_url.netloc, main_part))
 
-            links.add(main_part)
+            for domain in domains:
+                if main_part.find(domain) != -1:
+                    links.add(main_part)
 
         for p in list(params):
             tmp = p.split('&')
