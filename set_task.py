@@ -54,7 +54,7 @@ def main():
                 redis_conn.set("crawler/variables/"+var, "")
 
     if args.urls: # TODO Search through robots.txt and sitemap.xml
-        with open(args.args.urls, "r") as f:
+        with open(args.urls, "r") as f:
             for line in f:
                 url = line.strip("\n").strip()
                 domain = urlparse(url).netloc
