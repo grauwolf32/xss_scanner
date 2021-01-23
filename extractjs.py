@@ -26,7 +26,7 @@ js_keywords = set([
                         'while','with','yield'
                     ])
 
-js_datatypes = set(["Array", "Date" ,"function",
+js_datatypes = set(["Array", "Date" ,"function", "eval",
                     "hasOwnProperty", "Infinity","isFinite", "isNaN",
                     "isPrototypeOf","Math","NaN",
                     "Number","Object","prototype"
@@ -34,12 +34,12 @@ js_datatypes = set(["Array", "Date" ,"function",
 
 js_keywords.update(js_datatypes)
 
-reserved_keywords = set(["alert", "all", "anchor", "anchors",
+reserved_keywords = set(["alert", "all", "anchor", "anchors","async"
                          "area", "assign", "blur", "button",
                          "checkbox", "clearInterval", "clearTimeout", "clientInformation",
                          "close", "closed", "confirm","constructor",
                          "crypto", "decodeURI", "decodeURIComponent", "defaultStatus",
-                         "document","element","elements", "embed",
+                         "document","defer","element","elements", "embed",
                          "embeds","encodeURI","encodeURIComponent","escape",
                          "event","fileUpload","focus","form",
                          "forms","frame","innerHeight","innerWidth",
@@ -59,9 +59,15 @@ reserved_keywords = set(["alert", "all", "anchor", "anchors",
 reserved_small = set(["alert","innerHTML","self","setTimeout","window","clearTimeout"])
 js_keywords.update(reserved_small)
 
+js_event_handlers = set([
+                            "onblur", "onclick", "onerror","onfocus",
+                            "onkeydown", "onkeypress" "onkeyup", "onmouseover",
+                            "onload", "onmouseup",  "onmousedown", "onsubmit"  ])
+js_keywords.update(js_event_handlers)
+
 def extractjs_fast(src):
     # Extract all variable names from script
 
     jsvars = reduce(lambda x, y: x + y, [re.findall(regexp, src) for regexp in extractors], [])
     jsvars = reduce(lambda x, y: x + tuple(y), jsvars, tuple())
-    return set(jsvars)
+    return set(jsvars).difference(js_keywords)

@@ -2,7 +2,6 @@ import os
 import re
 import sys
 import json
-import redis
 import logging
 
 from selenium.webdriver.chrome.options import Options
@@ -14,8 +13,8 @@ infologger.addHandler(logging.FileHandler(filename="xss.log"))
 infologger.addHandler(logging.StreamHandler())
 
 # Chrome browser options
-chrome_path = '/Users/r.bomin/work/chromedriver'
-chrome_dir  = '/Users/r.bomin/work/chromedata'
+chrome_path = './chromedriver'
+chrome_dir  = './chromedata'
 
 def get_options(headless=False, proxy=None, load_cookies=False, load_images=False):
     chrome_options = Options() 
@@ -35,13 +34,10 @@ def get_options(headless=False, proxy=None, load_cookies=False, load_images=Fals
     chrome_options.add_argument('--ignore-certificate-errors')
     chrome_options.add_argument('--disable-web-security')
     chrome_options.add_argument('--disable-xss-auditor')
+    chrome_options.add_argument('--enable-logging')
+    chrome_options.add_argument('--v=1')
 
     return chrome_options
-
-# Redis options
-redis_host = 'localhost'
-redis_port = 6379
-redis_db = 1
 
 # Generator
 const_get_maxlen = 1000
@@ -50,20 +46,17 @@ postproxy = "http://localhost:5000" # Special web-page for post requests
 
 # Notification settings
 smtp_server = "smtp.mail.ru:465"
+main_page = "https://mail.ru"
 credfile = "./creds"
 
-# Queues
-task_queue = "xss/queue/"
-processing_queue = "xss/processing/"
-done_queue = "xss/done/"
+# Request settings
+requests_timeout = 0.5
+driver_timeout = 5
 
-payloads_queue = "xss/payloads/"
-variables_queue = "xss/variables/"
+#DOM XSS Marker
+domxss_marker="marker1337"
 
-# Packer values
-const_use_crawler     = 1 << 2
-const_use_extractor   = 1 << 3
-const_use_post    = 1 << 5
-const_use_get     = 1 << 6
-
-requests_timeout = 2
+#Screenshoots
+img_path = "./screenshoots/"
+if not os.path.exists(img_path):
+    os.mkdir(img_path)
