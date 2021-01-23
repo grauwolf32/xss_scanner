@@ -36,3 +36,6 @@ You can also login on the target domains manually (to set auth Cookies, etc.) by
 
 After that you can use --cookie param to load saved cookies.
 
+**To perform post requests you have to run ./post-proxy.py.**
+It just creates clear page on the localhost, then scaner runs js in console and create form with required parameters, then click the form submit button and do post request.
+
