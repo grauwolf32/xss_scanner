@@ -6,7 +6,7 @@ XSS scanner based on Chromium.
 * Could perform verification for the list of given urls with Reflected XSS in GET parameters
 * It can also extract variable names from Java Scrips on the page. 
 
-OPTIONS:
+## OPTIONS:
 
 ```
 --all    - do checks for XSS in GET,POST parameters. Send postMessage with the dom xss keyword
@@ -38,4 +38,15 @@ After that you can use --cookie param to load saved cookies.
 
 **To perform post requests you have to run ./post-proxy.py.**
 It just creates clear page on the localhost, then scaner runs js in console and create form with required parameters, then click the form submit button and do post request.
+
+## INSTALLATION
+Those Python packages are required:
+selenium
+flask
+requests
+lxml
+
+You have to download [Chromium Driver](https://chromedriver.chromium.org/).
+It version must correspond to the version of chromium-browser on your system
+The path to the chromium-driver must be specified in ./settings.py
 
